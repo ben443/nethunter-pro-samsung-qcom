@@ -244,6 +244,16 @@ consider_kernel_candidate() {
 resolve_dtb_path() {
     local dtb_name="$1"
     local REPO_ROOT="$(dirname "${SCRIPT}")"
+
+    # The r8q kernel package may carry an older DTB than the repository's
+    # firmware-framebuffer fix. Prefer the refreshed overlay when present.
+    if [ "${DEVICE}" = "r8q" ]; then
+        candidate="/usr/lib/linux-image-qcom/qcom/${dtb_name}"
+        if [ -f "${candidate}" ]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    fi
     
     for candidate in \
         "${REPO_ROOT}/${dtb_name}" \
@@ -278,6 +288,10 @@ if [ -z "${KERNEL_IMAGE}" ]; then
     done < "${WORKDIR}/kernel-candidates.txt"
 fi
 if [ -z "${KERNEL_IMAGE}" ] || [ -z "${KERNEL_VERSION}" ] || [ -z "${RAMDISK_IMAGE}" ]; then
+    if [ "${DEVICE}" = "r8q" ]; then
+        echo "ERROR: unable to locate matching kernel and ramdisk artifacts for r8q" >&2
+        exit 1
+    fi
     echo "WARN: unable to locate matching kernel and ramdisk artifacts for ${DEVICE}; skipping boot image generation"
     exit 0
 fi
@@ -363,6 +377,10 @@ for i in $(seq 0 $(tomlq -r '.device | length - 1' "${CONFIG}")); do
             fi
         done
         if [ -z "${DTB_FILE}" ]; then
+            if [ "${DEVICE}" = "r8q" ]; then
+                echo "ERROR: unable to locate DTB artifact for ${FULLMODEL}; tried ${DTB_NAMES}" >&2
+                exit 1
+            fi
             echo "WARN: unable to locate DTB artifact for ${FULLMODEL}; tried ${DTB_NAMES}; skipping boot image generation"
             continue
         fi
@@ -377,7 +395,22 @@ for i in $(seq 0 $(tomlq -r '.device | length - 1' "${CONFIG}")); do
     echo "Creating boot image for ${FULLMODEL}..."
 
     # Create the bootimg as it's the only format recognized by the Android bootloader
-    mkbootimg -o "./bootimg-${FULLMODEL}" ${BOOTIMG_ARGS} \
-        --kernel "${KERNEL_ARG}" --ramdisk "${RAMDISK_IMAGE}" \
-        --cmdline "mobile.root=${ROOTPART} ${CMDLINE} init=/sbin/init ro ${LOGLEVEL} splash"
+    OUTPUT="./bootimg-${FULLMODEL}"
+    if [ "${DEVICE}" = "r8q" ]; then
+        rm -f "${OUTPUT}"
+        if ! mkbootimg -o "${OUTPUT}" ${BOOTIMG_ARGS} \
+            --kernel "${KERNEL_ARG}" --ramdisk "${RAMDISK_IMAGE}" \
+            --cmdline "mobile.root=${ROOTPART} ${CMDLINE} init=/sbin/init ro ${LOGLEVEL} splash"; then
+            echo "ERROR: mkbootimg failed for r8q" >&2
+            exit 1
+        fi
+        if [ ! -s "${OUTPUT}" ]; then
+            echo "ERROR: mkbootimg did not produce a boot image for r8q" >&2
+            exit 1
+        fi
+    else
+        mkbootimg -o "${OUTPUT}" ${BOOTIMG_ARGS} \
+            --kernel "${KERNEL_ARG}" --ramdisk "${RAMDISK_IMAGE}" \
+            --cmdline "mobile.root=${ROOTPART} ${CMDLINE} init=/sbin/init ro ${LOGLEVEL} splash"
+    fi
 done
