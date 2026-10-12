@@ -33,7 +33,27 @@ for kernel_image in /boot/vmlinuz-*; do
             ;;
     esac
     [ -d "/lib/modules/${version}" ] || [ -d "/usr/lib/linux-image-${version}" ] || continue
+
+    for module in ufs-qcom phy-qcom-qmp-ufs; do
+        if ! modinfo -k "${version}" "${module}" >/dev/null 2>&1; then
+            echo "ERROR: required r8q initramfs module ${module} is missing for ${version}" >&2
+            exit 1
+        fi
+    done
+
     update-initramfs -u -k "${version}"
+    initrd="/boot/initrd.img-${version}"
+    if [ ! -s "${initrd}" ] || ! command -v lsinitramfs >/dev/null 2>&1; then
+        echo "ERROR: unable to inspect generated r8q initramfs ${initrd}" >&2
+        exit 1
+    fi
+    initrd_contents="$(lsinitramfs "${initrd}")"
+    for module in ufs-qcom phy-qcom-qmp-ufs; do
+        if ! printf '%s\n' "${initrd_contents}" | grep -Eq "/${module}[.]ko([.][[:alnum:]]+)?$"; then
+            echo "ERROR: generated r8q initramfs is missing required module ${module}" >&2
+            exit 1
+        fi
+    done
     UPDATED=1
 done
 

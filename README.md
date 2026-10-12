@@ -58,7 +58,9 @@ Build examples:
 ./build.sh -t r8q -e phosh
 ```
 
-The `r8q` qcom config uses Samsung-style bootimg v2 offsets and now takes DTBs directly from the installed kernel package (`/usr/lib/linux-image-*/qcom`). Boot image generation tries `sm8250-samsung-r8q.dtb` first and falls back to `sm8250-samsung-r8s.dtb` for kernels that use mainline naming. The image build also regenerates the installed kernel initramfs so boot image creation can find matching kernel and ramdisk artifacts without skipping `boot.img`.
+The `r8q` qcom config uses Samsung-style bootimg v2 offsets and generates a separate DTB component. Boot image generation tries `sm8250-samsung-r8q.dtb` first and falls back to `sm8250-samsung-r8s.dtb` for kernels that use mainline naming. The r8q fallback DTB now carries the upstream firmware-framebuffer clock and power-domain settings; it is preferred over the older DTB shipped inside the kernel package. Since the packaged kernel builds the Qualcomm UFS host and PHY drivers as modules, the r8q initramfs explicitly includes and verifies both before booting its root image from UFS. The image build also regenerates the installed kernel initramfs, and fails rather than silently succeeding if matching r8q kernel, ramdisk, DTB, UFS modules, or boot-image artifacts are missing.
+
+This target already builds a Kali Rolling ARM64 userspace from `rootfs.yaml`; there is no Arch tarball in this build to replace. The separate `ben443/r8q-linux` bring-up uses Mu-Silicium UEFI, an EFI-stub kernel with an embedded switch-root initramfs, and a root filesystem directly on `userdata`. Those boot components are not interchangeable with this target's Android bootimg v2 image and `rootimg` loop-mount setup. In particular, the bundled kernel config currently has `CONFIG_DRM_SIMPLEDRM` disabled, so achieving the upstream UEFI framebuffer path also requires rebuilding the kernel with the corresponding r8q bring-up config and using Mu-Silicium; this recipe does not generate or flash those components.
 
 Building with disk encryption support will also require the package `cryptsetup` to be installed
 on your host.
