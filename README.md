@@ -31,6 +31,18 @@ are required, which you can install with the following command:
 sudo apt install android-sdk-libsparse-utils yq mkbootimg
 ```
 
+### Alternate upstream build script
+
+`build-upstream.sh` is a separate snapshot of the current Kali NetHunter Pro
+upstream build script. It provides upstream options such as selecting a Kali
+branch, output directory, extra packages, and reusing a rootfs. Run
+`./build-upstream.sh --help` for its options. It does not replace this
+repository's `build.sh`; the upstream target list does not include this
+repository's `r8q`, `gts8wifi`, or `sm8450` targets.
+
+Source: [Kali NetHunter Pro upstream build.sh](https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-pro/-/blob/main/build.sh)
+(snapshot retrieved 2026-10-12).
+
 ### Qualcomm targets
 
 - `sc7280`
