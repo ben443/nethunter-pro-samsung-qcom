@@ -20,6 +20,6 @@ vendor = "samsung"
 model = "r8q"
 dtb_model_fallbacks = ["r8s"]
 append_dtb_to_kernel = false
-append = "console=tty0 clk_ignore_unused pd_ignore_unused arm-smmu.disable_bypass=0 panic=30 rootimg=PARTLABEL=userdata/media/0/data/rootfs.img root=/dev/loop0 mobile.root=/dev/loop0"
+append = "console=tty0 clk_ignore_unused irqchip.gicv3_pseudo_nmi=1 Joanna pd_ignore_unused arm-smmu.disable_bypass=0 rootwait panic=30 root=/dev/block/by-name/userdata"
 
 dtb = "qcom/sm8250-samsung-r8q.dtb"
