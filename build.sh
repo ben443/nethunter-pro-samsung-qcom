@@ -163,6 +163,10 @@ ARGS="${ARGS} -t architecture:${arch} -t family:${family} -t device:${device} \
             -t debian_suite:${debian_suite} -t suite:${suite} \
             --scratchsize=8G"
 
+if [ "$installer" ]; then
+  ${DEBOS_CMD} ${ARGS} --dry-run "rootfs-device.yaml"
+fi
+
 if [ ! "${image_only}" ] || [ ! -f "${rootfs_file}" ]; then
   # Ensure subsequent artifacts are rebuilt too
   rm -f "rootfs-${device}-${environment}.tar.xz"
