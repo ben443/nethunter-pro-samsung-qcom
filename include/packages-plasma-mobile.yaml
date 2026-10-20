@@ -8,6 +8,7 @@ actions:
     description: Install Plasma Mobile packages
     packages:
       - mobian-plasma-mobile
+      - plasma-settings
       - firefox-esr
       - phrog
       - plasma-discover

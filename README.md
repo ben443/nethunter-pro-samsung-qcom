@@ -47,6 +47,24 @@ Example build command for Galaxy S20 FE 5G:
 ./build.sh -t r8q
 ```
 
+### SSH access
+
+SSH is installed and enabled in the image. To use key-only authentication, put
+your **public** key in `overlays/ssh/authorized_keys` and build with `-s`:
+
+```sh
+mkdir -p overlays/ssh
+cp ~/.ssh/id_ed25519.pub overlays/ssh/authorized_keys
+./build.sh -t r8q -s
+```
+
+Use the corresponding `-t` target for another device. The key file is ignored by
+Git, so it will not be committed. Do not put a private key in the image or
+repository. With the device reachable over the network, connect as the image's
+default user (normally `kali`) using `ssh kali@<device-ip>`. The `-s` option
+disables SSH password authentication and installs the supplied key. The build
+already enables `ssh.service`; no additional SSH service unit is needed.
+
 ### Samsung Galaxy S20 FE 5G (r8q / SM8250)
 
 `r8q` is a Qualcomm SM8250 target and follows the repository's qcom build flow.
