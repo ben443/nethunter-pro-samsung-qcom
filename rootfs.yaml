@@ -92,9 +92,9 @@ actions:
     destination: /home/{{ $username }}/.ssh/
 
   - action: run
-    description: Set owner of .ssh
+    description: Set secure ownership and permissions for .ssh
     chroot: true
-    command: chown -R {{ $username }}:{{ $username }} /home/{{ $username }}/.ssh/
+    command: chown -R {{ $username }}:{{ $username }} /home/{{ $username }}/.ssh/ && chmod 700 /home/{{ $username }}/.ssh && chmod 600 /home/{{ $username }}/.ssh/authorized_keys
 {{ end }}
 
 {{ if eq $zram "true" }}
