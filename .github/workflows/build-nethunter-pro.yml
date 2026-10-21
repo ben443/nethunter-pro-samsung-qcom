@@ -145,7 +145,16 @@ jobs:
           BUILD_ARGS: ${{ steps.args.outputs.value }}
         run: |
           set -euo pipefail
-          sudo ./build.sh ${BUILD_ARGS}
+          read -r -a args <<< "${BUILD_ARGS}"
+          if [[ ! -s overlays/ssh/authorized_keys && -s "${HOME}/.ssh/id_ed25519.pub" ]]; then
+            install -D -m 600 "${HOME}/.ssh/id_ed25519.pub" overlays/ssh/authorized_keys
+          fi
+          if [[ -s overlays/ssh/authorized_keys ]]; then
+            args+=(-s)
+          else
+            echo "No SSH public key configured; building without the key-only SSH overlay."
+          fi
+          sudo ./build.sh "${args[@]}"
 
       - name: Collect boot image artifacts
         if: ${{ steps.args.outputs.mode == 'bootimg-only' }}
