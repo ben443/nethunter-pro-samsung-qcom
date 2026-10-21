@@ -101,6 +101,12 @@ The `r8q` qcom config uses Samsung-style bootimg v2 offsets and generates a sepa
 
 This target already builds a Kali Rolling ARM64 userspace from `rootfs.yaml`; there is no Arch tarball in this build to replace. The separate `ben443/r8q-linux` bring-up uses Mu-Silicium UEFI, an EFI-stub kernel with an embedded switch-root initramfs, and a root filesystem directly on `userdata`. Those boot components are not interchangeable with this target's Android bootimg v2 image and `rootimg` loop-mount setup. In particular, the bundled kernel config currently has `CONFIG_DRM_SIMPLEDRM` disabled, so achieving the upstream UEFI framebuffer path also requires rebuilding the kernel with the corresponding r8q bring-up config and using Mu-Silicium; this recipe does not generate or flash those components.
 
+#### Experimental U-Boot path
+
+The [r8q U-Boot port](https://github.com/ben443/u-boot-r8q) provides an [R8Q build workflow](https://github.com/ben443/u-boot-r8q/blob/master/.github/workflows/build-images.yml) and a [boot guide](https://github.com/ben443/u-boot-r8q/blob/master/NETHUNTER_BOOT.md). This is a separate, experimental boot path and is not currently built or integrated by this repository.
+
+Do not treat its `u-boot-r8q-boot.img` or boot instructions as drop-in replacements for this target. The upstream guide describes a standalone ext4 root partition (for example, `/dev/sda1`), whereas this target's boot arguments point initramfs to a rootfs image stored on the `userdata` partition (`rootimg=PARTLABEL=userdata/media/0/data/rootfs.img`) and mount that image through a loop device. Boot arguments, partition discovery, and initramfs behavior must be reconciled and tested on the device before attempting to boot this image with U-Boot. The existing NetHunter `boot.img` build remains the supported path here.
+
 Building with disk encryption support will also require the package `cryptsetup` to be installed
 on your host.
 
