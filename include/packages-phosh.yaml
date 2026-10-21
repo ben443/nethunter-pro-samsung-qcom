@@ -8,6 +8,8 @@ actions:
     description: Install Phosh packages
     packages:
       - mobian-phosh
+      - gnome-control-center
+      - phosh-mobile-settings
       # Additional software we don't want metapackages to depend on
       - firefox-esr
       - gnome-sound-recorder

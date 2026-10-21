@@ -1,19 +1,25 @@
 chipset = "sm8250"
 
 [bootimg]
+version = 2
 base = 0x0
 bootsize = 0x4000000
 kernel = 0x8000
-ramdisk = 0x1000000
+ramdisk = 0x2000000
 second = 0
-tags = 0x100
+tags = 0x1e00000
+dtb = 0x1f00000
 pagesize = 0x1000
 name = ""
+board = "SRPUB26A012"
+os_version = "11.0.0"
+os_patch_level = "2024-09"
 
 [[device]]
 vendor = "samsung"
 model = "r8q"
 dtb_model_fallbacks = ["r8s"]
-append = "console=tty0 clk_ignore_unused pd_ignore_unused rootwait rootimg=PARTLABEL=userdata/media/0/data/rootfs.img root=/dev/loop0 mobile.root=/dev/loop0"
+append_dtb_to_kernel = false
+append = "console=tty0 clk_ignore_unused irqchip.gicv3_pseudo_nmi=1 Joanna pd_ignore_unused arm-smmu.disable_bypass=0 rootwait panic=30 root=/dev/block/by-name/userdata"
 
 dtb = "qcom/sm8250-samsung-r8q.dtb"

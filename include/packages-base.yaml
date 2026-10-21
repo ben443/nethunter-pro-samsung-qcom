@@ -16,12 +16,11 @@ actions:
       - mobian-base
       - kali-linux-core
       - kali-themes-mobile
-{{ if $ssh }}
       - openssh-server
-{{ end }}
       - systemd-repart
       # Reason for this: it's @a-wai's preferred editor
       - vim
+      - nano
 
   - action: run
     description: add fossfrog repo

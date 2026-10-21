@@ -18,6 +18,25 @@ sed -i 's|https|http|g' /etc/apt/sources.list.d/mobian.sources
 # Set the proper suite in our sources file
 sed -i "s/Suites: .*/Suites: ${SUITE}/" /etc/apt/sources.list.d/mobian.sources
 
+# Kali does not carry meta-phosh; allow only its metapackages from Debian.
+cat > /etc/apt/sources.list.d/debian-phosh.sources << EOF
+Types: deb
+URIs: https://deb.debian.org/debian
+Suites: sid
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+EOF
+
+cat > /etc/apt/preferences.d/20-debian-phosh << EOF
+Package: src:meta-phosh
+Pin: release o=Debian
+Pin-Priority: 100
+
+Package: *
+Pin: release o=Debian
+Pin-Priority: -1
+EOF
+
 # Prefer certain packages from Mobian, rather than Kali
 cat > /etc/apt/preferences.d/10-mobian-priority << EOF
 Package: u-boot-menu*
