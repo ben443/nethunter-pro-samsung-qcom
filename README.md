@@ -65,6 +65,15 @@ default user (normally `kali`) using `ssh kali@<device-ip>`. The `-s` option
 disables SSH password authentication and installs the supplied key. The build
 already enables `ssh.service`; no additional SSH service unit is needed.
 
+The GitHub Actions build enables `-s` only when a non-empty
+`overlays/ssh/authorized_keys` is present, or a non-empty
+`~/.ssh/id_ed25519.pub` is available to copy there. Hosted runners normally have
+neither, so the workflow builds without the key-only SSH overlay and does not
+generate keys. This does **not** disable SSH: the image retains its default
+authentication settings and default user password. Change the password before
+exposing the device to a network. Only supply public keys belonging to users
+who should have access to the published image.
+
 ### Samsung Galaxy S20 FE 5G (r8q / SM8250)
 
 `r8q` is a Qualcomm SM8250 target and follows the repository's qcom build flow.
