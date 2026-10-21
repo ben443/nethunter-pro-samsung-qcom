@@ -1,59 +1,81 @@
 #!/bin/sh
 
-# This script runs during the init-premount phase and sets up a loop
-# device for the root filesystem image from any partition specified
-# by the rootimg= value in the cmdline, along with the full path to
-# the rootfs image file.
-# Example:
-#	In the context of Android, if you've stored the rootfs image in
-# the eMMC path (e.g., /sdcard/myrootfs.img), you can provide the
-# following command line value to boot the OS from the rootfs image:
-# rootimg=PARTLABEL=userdata/media/0/myrootfs.img
+# Runs during init-premount: loop-mounts a rootfs image stored on a partition.
+# Kernel cmdline: rootimg=<PARTSPEC>/<path/to/image>
+# Example:        rootimg=PARTLABEL=userdata/media/0/rootfs.img
 
 set -e
 
+prereqs() { echo ""; }
+
 case "${1}" in
-	prereqs)
-		exit 0
-		;;
+    prereqs) prereqs; exit 0 ;;
 esac
 
+# Fallback logging (overridden by /scripts/functions if present)
+log_warning_msg() { echo "W: losetup-rootimg: $*" >&2; }
+log_success_msg()  { echo "I: losetup-rootimg: $*"; }
+[ -r /scripts/functions ] && . /scripts/functions
+
+# Parse rootimg=PARTSPEC/path/to/image from kernel cmdline
+IMGPART=""
+IMGRELPATH=""
 for x in $(cat /proc/cmdline); do
-	case $x in
-		rootimg=*)
-			ROOTIMG=${x#rootimg=}
-			IMGPART=${ROOTIMG%%/*}
-			IMGPATH=${ROOTIMG#*=}
-			MNTDIR=${IMGPATH%%/*}
-			;;
-	esac
+    case "${x}" in
+        rootimg=*)
+            ROOTIMG="${x#rootimg=}"
+            IMGPART="${ROOTIMG%%/*}"
+            IMGRELPATH="${ROOTIMG#*/}"
+            ;;
+    esac
 done
 
-# Exit if empty
-[ -z "${IMGPART}" ] && exit
-
-# Find block device
-if [ -b /dev/${IMGPART} ]
-then
-    DEVICE=/dev/${IMGPART}
-elif blkid -t ${IMGPART} -o device > /dev/null
-then
-    DEVICE=`blkid -t ${IMGPART} -o device`
-else
-	exit
+if [ -z "${IMGPART}" ] || [ -z "${IMGRELPATH}" ]; then
+    exit 0
 fi
 
-# Mount and losetup the image file
-LOOP=`losetup -f`
-mkdir -p ${MNTDIR}
-mount -t `blkid ${DEVICE} -o value -s TYPE`  ${DEVICE} ${MNTDIR}
+resolve_partition_device() {
+    partition="$1"
+    if [ -b "/dev/${partition}" ]; then
+        printf '%s\n' "/dev/${partition}"
+        return 0
+    fi
 
-if [ -f "${IMGPATH}" ]
-then
-	[ -b "${LOOP}" ] || mknod ${LOOP} b 7 "${LOOP##*loop}"
-	losetup ${LOOP} ${IMGPATH}
-else
-	umount ${MNTDIR}
-	rmdir ${MN
-TDIR}
+    device="$(blkid -l -t "${partition}" -o device 2>/dev/null)" || return 1
+    [ -b "${device}" ] || return 1
+    printf '%s\n' "${device}"
+}
+
+DEVICE=""
+WAITED=0
+while [ "${WAITED}" -le 30 ]; do
+    if DEVICE="$(resolve_partition_device "${IMGPART}")"; then
+        break
+    fi
+    [ "${WAITED}" -lt 30 ] || break
+    sleep 1
+    WAITED=$((WAITED + 1))
+done
+
+if [ -z "${DEVICE}" ]; then
+    log_warning_msg "cannot resolve device for '${IMGPART}'"
+    exit 1
 fi
+
+# Mount partition read-only, then attach the image as a loop device
+MNTDIR="/run/rootimg-mnt"
+mkdir -p "${MNTDIR}"
+FSTYPE="$(blkid "${DEVICE}" -o value -s TYPE)"
+mount -r -t "${FSTYPE}" "${DEVICE}" "${MNTDIR}"
+
+IMGPATH="${MNTDIR}/${IMGRELPATH}"
+
+if [ ! -f "${IMGPATH}" ]; then
+    log_warning_msg "image not found: ${IMGPATH}"
+    umount "${MNTDIR}"
+    rmdir "${MNTDIR}"
+    exit 1
+fi
+
+LOOP="$(losetup --find --show "${IMGPATH}")"
+log_success_msg "${IMGPATH} → ${LOOP}"
