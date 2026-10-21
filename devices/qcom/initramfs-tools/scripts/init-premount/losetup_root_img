@@ -50,9 +50,10 @@ mount -t `blkid ${DEVICE} -o value -s TYPE`  ${DEVICE} ${MNTDIR}
 
 if [ -f "${IMGPATH}" ]
 then
-	[ -b "${LOOP}" ] || mknod ${LOOP} b 7 0
+	[ -b "${LOOP}" ] || mknod ${LOOP} b 7 "${LOOP##*loop}"
 	losetup ${LOOP} ${IMGPATH}
 else
 	umount ${MNTDIR}
-	rmdir ${MNTDIR}
+	rmdir ${MN
+TDIR}
 fi

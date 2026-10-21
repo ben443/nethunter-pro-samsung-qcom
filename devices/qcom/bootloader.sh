@@ -25,6 +25,10 @@ bootimg_offsets() {
     local TAGS="$(echo "${BOOTIMG}" | jq -r '.tags + .base' -)"
     local PAGE_SIZE="$(echo "${BOOTIMG}" | jq -r '.pagesize' -)"
     local DTB="$(echo "${BOOTIMG}" | jq -r 'if .dtb then .dtb + .base else "" end' -)"
+    local BOARD OS_VERSION OS_PATCH_LEVEL
+    BOARD="$(echo "${BOOTIMG}" | jq -r 'if .board then .board else "" end' -)"
+    OS_VERSION="$(echo "${BOOTIMG}" | jq -r 'if .os_version then .os_version else "" end' -)"
+    OS_PATCH_LEVEL="$(echo "${BOOTIMG}" | jq -r 'if .os_patch_level then .os_patch_level else "" end' -)"
 
     local ARGS="--kernel_offset ${KERNEL} --ramdisk_offset ${RAMDISK}"
     ARGS="${ARGS} --second_offset ${SECOND} --tags_offset ${TAGS}"
@@ -36,6 +40,16 @@ bootimg_offsets() {
 
     if [ "${DTB}" ]; then
         ARGS="${ARGS} --dtb_offset ${DTB}"
+    fi
+
+    if [ "${BOARD}" ]; then
+        ARGS="${ARGS} --board ${BOARD}"
+    fi
+    if [ "${OS_VERSION}" ]; then
+        ARGS="${ARGS} --os_version ${OS_VERSION}"
+    fi
+    if [ "${OS_PATCH_LEVEL}" ]; then
+        ARGS="${ARGS} --os_patch_level ${OS_PATCH_LEVEL}"
     fi
 
     echo "${ARGS}"
@@ -61,6 +75,17 @@ resolve_ramdisk_path() {
         fi
     done
     return 1
+}
+
+ensure_gzip_artifact() {
+    input="$1"
+    output="$2"
+
+    if gzip -t "${input}" >/dev/null 2>&1; then
+        cp "${input}" "${output}"
+    else
+        gzip -n -c "${input}" > "${output}"
+    fi
 }
 
 ensure_ramdisk_for_version() {
@@ -219,6 +244,16 @@ consider_kernel_candidate() {
 resolve_dtb_path() {
     local dtb_name="$1"
     local REPO_ROOT="$(dirname "${SCRIPT}")"
+
+    # The r8q kernel package may carry an older DTB than the repository's
+    # firmware-framebuffer fix. Prefer the refreshed overlay when present.
+    if [ "${DEVICE}" = "r8q" ]; then
+        candidate="/usr/lib/linux-image-qcom/qcom/${dtb_name}"
+        if [ -f "${candidate}" ]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    fi
     
     for candidate in \
         "${REPO_ROOT}/${dtb_name}" \
@@ -253,8 +288,24 @@ if [ -z "${KERNEL_IMAGE}" ]; then
     done < "${WORKDIR}/kernel-candidates.txt"
 fi
 if [ -z "${KERNEL_IMAGE}" ] || [ -z "${KERNEL_VERSION}" ] || [ -z "${RAMDISK_IMAGE}" ]; then
+    if [ "${DEVICE}" = "r8q" ]; then
+        echo "ERROR: unable to locate matching kernel and ramdisk artifacts for r8q" >&2
+        exit 1
+    fi
     echo "WARN: unable to locate matching kernel and ramdisk artifacts for ${DEVICE}; skipping boot image generation"
     exit 0
+fi
+
+if [ "${DEVICE}" = "r8q" ]; then
+    GZIP_KERNEL="${WORKDIR}/kernel-${KERNEL_VERSION}.gz"
+    GZIP_RAMDISK="${WORKDIR}/ramdisk-${KERNEL_VERSION}.gz"
+    if ! ensure_gzip_artifact "${KERNEL_IMAGE}" "${GZIP_KERNEL}" ||
+        ! ensure_gzip_artifact "${RAMDISK_IMAGE}" "${GZIP_RAMDISK}"; then
+        echo "ERROR: unable to gzip kernel and ramdisk artifacts for r8q" >&2
+        exit 1
+    fi
+    KERNEL_IMAGE="${GZIP_KERNEL}"
+    RAMDISK_IMAGE="${GZIP_RAMDISK}"
 fi
 
 # Parse config for generic parameters for the current SoC
@@ -271,6 +322,7 @@ for i in $(seq 0 $(tomlq -r '.device | length - 1' "${CONFIG}")); do
     DTB_MODEL=$(tomlq -r "if .device[$i].dtb_model then .device[$i].dtb_model else \"${MODEL}\" end" ${CONFIG})
     DTB_VARIANT=$(tomlq -r "if .device[$i].dtb_variant then .device[$i].dtb_variant else \"${VARIANT}\" end" ${CONFIG})
     APPEND=$(tomlq -r "if .device[$i].append then .device[$i].append else \"\" end" ${CONFIG})
+    APPEND_DTB_TO_KERNEL=$(tomlq -r "if .device[$i].append_dtb_to_kernel == false then \"false\" else \"true\" end" "${CONFIG}")
     DTB_MODEL_FALLBACKS=$(tomlq -r "if .device[$i].dtb_model_fallbacks then .device[$i].dtb_model_fallbacks[] else empty end" ${CONFIG})
     # Extract device-specific bootimg parameters in JSON format for processing by `bootimg_offsets()`
     DEVICE_BOOTIMG=$(tomlq -r "if .device[$i].bootimg then .device[$i].bootimg else \"\" end" ${CONFIG})
@@ -325,19 +377,40 @@ for i in $(seq 0 $(tomlq -r '.device | length - 1' "${CONFIG}")); do
             fi
         done
         if [ -z "${DTB_FILE}" ]; then
+            if [ "${DEVICE}" = "r8q" ]; then
+                echo "ERROR: unable to locate DTB artifact for ${FULLMODEL}; tried ${DTB_NAMES}" >&2
+                exit 1
+            fi
             echo "WARN: unable to locate DTB artifact for ${FULLMODEL}; tried ${DTB_NAMES}; skipping boot image generation"
             continue
         fi
         BOOTIMG_ARGS="${BOOTIMG_ARGS} --dtb ${DTB_FILE}"
-        KERNEL_DTB="${WORKDIR}/kernel-dtb-${FULLMODEL}"
-        cat "${KERNEL_IMAGE}" "${DTB_FILE}" > "${KERNEL_DTB}"
-        KERNEL_ARG="${KERNEL_DTB}"
+        if [ "${APPEND_DTB_TO_KERNEL}" = "true" ]; then
+            KERNEL_DTB="${WORKDIR}/kernel-dtb-${FULLMODEL}"
+            cat "${KERNEL_IMAGE}" "${DTB_FILE}" > "${KERNEL_DTB}"
+            KERNEL_ARG="${KERNEL_DTB}"
+        fi
     fi
 
     echo "Creating boot image for ${FULLMODEL}..."
 
     # Create the bootimg as it's the only format recognized by the Android bootloader
-    mkbootimg -o "/bootimg-${FULLMODEL}" ${BOOTIMG_ARGS} \
-        --kernel "${KERNEL_ARG}" --ramdisk "${RAMDISK_IMAGE}" \
-        --cmdline "mobile.root=${ROOTPART} ${CMDLINE} init=/sbin/init ro ${LOGLEVEL} splash"
+    OUTPUT="./bootimg-${FULLMODEL}"
+    if [ "${DEVICE}" = "r8q" ]; then
+        rm -f "${OUTPUT}"
+        if ! mkbootimg -o "${OUTPUT}" ${BOOTIMG_ARGS} \
+            --kernel "${KERNEL_ARG}" --ramdisk "${RAMDISK_IMAGE}" \
+            --cmdline "mobile.root=${ROOTPART} ${CMDLINE} init=/sbin/init ro ${LOGLEVEL} splash"; then
+            echo "ERROR: mkbootimg failed for r8q" >&2
+            exit 1
+        fi
+        if [ ! -s "${OUTPUT}" ]; then
+            echo "ERROR: mkbootimg did not produce a boot image for r8q" >&2
+            exit 1
+        fi
+    else
+        mkbootimg -o "${OUTPUT}" ${BOOTIMG_ARGS} \
+            --kernel "${KERNEL_ARG}" --ramdisk "${RAMDISK_IMAGE}" \
+            --cmdline "mobile.root=${ROOTPART} ${CMDLINE} init=/sbin/init ro ${LOGLEVEL} splash"
+    fi
 done

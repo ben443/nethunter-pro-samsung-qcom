@@ -60,5 +60,4 @@ actions:
 
   - action: pack
     file: rootfs-{{ $device }}-{{ $environment }}.tar.xz
-    comp
-    ression: xz
+    compression: xz

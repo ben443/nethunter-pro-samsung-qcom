@@ -31,6 +31,18 @@ are required, which you can install with the following command:
 sudo apt install android-sdk-libsparse-utils yq mkbootimg
 ```
 
+### Alternate upstream build script
+
+`build-upstream.sh` is a separate snapshot of the current Kali NetHunter Pro
+upstream build script. It provides upstream options such as selecting a Kali
+branch, output directory, extra packages, and reusing a rootfs. Run
+`./build-upstream.sh --help` for its options. It does not replace this
+repository's `build.sh`; the upstream target list does not include this
+repository's `r8q`, `gts8wifi`, or `sm8450` targets.
+
+Source: [Kali NetHunter Pro upstream build.sh](https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-pro/-/blob/main/build.sh)
+(snapshot retrieved 2026-10-12).
+
 ### Qualcomm targets
 
 - `sc7280`
@@ -47,6 +59,33 @@ Example build command for Galaxy S20 FE 5G:
 ./build.sh -t r8q
 ```
 
+### SSH access
+
+SSH is installed and enabled in the image. To use key-only authentication, put
+your **public** key in `overlays/ssh/authorized_keys` and build with `-s`:
+
+```sh
+mkdir -p overlays/ssh
+cp ~/.ssh/id_ed25519.pub overlays/ssh/authorized_keys
+./build.sh -t r8q -s
+```
+
+Use the corresponding `-t` target for another device. The key file is ignored by
+Git, so it will not be committed. Do not put a private key in the image or
+repository. With the device reachable over the network, connect as the image's
+default user (normally `kali`) using `ssh kali@<device-ip>`. The `-s` option
+disables SSH password authentication and installs the supplied key. The build
+already enables `ssh.service`; no additional SSH service unit is needed.
+
+The GitHub Actions build enables `-s` only when a non-empty
+`overlays/ssh/authorized_keys` is present, or a non-empty
+`~/.ssh/id_ed25519.pub` is available to copy there. Hosted runners normally have
+neither, so the workflow builds without the key-only SSH overlay and does not
+generate keys. This does **not** disable SSH: the image retains its default
+authentication settings and default user password. Change the password before
+exposing the device to a network. Only supply public keys belonging to users
+who should have access to the published image.
+
 ### Samsung Galaxy S20 FE 5G (r8q / SM8250)
 
 `r8q` is a Qualcomm SM8250 target and follows the repository's qcom build flow.
@@ -58,7 +97,9 @@ Build examples:
 ./build.sh -t r8q -e phosh
 ```
 
-The `r8q` qcom config uses Samsung-style bootimg v2 offsets and now takes DTBs directly from the installed kernel package (`/usr/lib/linux-image-*/qcom`). Boot image generation tries `sm8250-samsung-r8q.dtb` first and falls back to `sm8250-samsung-r8s.dtb` for kernels that use mainline naming. The image build also regenerates the installed kernel initramfs so boot image creation can find matching kernel and ramdisk artifacts without skipping `boot.img`.
+The `r8q` qcom config uses Samsung-style bootimg v2 offsets and generates a separate DTB component. Boot image generation tries `sm8250-samsung-r8q.dtb` first and falls back to `sm8250-samsung-r8s.dtb` for kernels that use mainline naming. The r8q fallback DTB now carries the upstream firmware-framebuffer clock and power-domain settings; it is preferred over the older DTB shipped inside the kernel package. Since the packaged kernel builds the Qualcomm UFS host and PHY drivers as modules, the r8q initramfs explicitly includes and verifies both before booting its root image from UFS. The image build also regenerates the installed kernel initramfs, and fails rather than silently succeeding if matching r8q kernel, ramdisk, DTB, UFS modules, or boot-image artifacts are missing.
+
+This target already builds a Kali Rolling ARM64 userspace from `rootfs.yaml`; there is no Arch tarball in this build to replace. The separate `ben443/r8q-linux` bring-up uses Mu-Silicium UEFI, an EFI-stub kernel with an embedded switch-root initramfs, and a root filesystem directly on `userdata`. Those boot components are not interchangeable with this target's Android bootimg v2 image and `rootimg` loop-mount setup. In particular, the bundled kernel config currently has `CONFIG_DRM_SIMPLEDRM` disabled, so achieving the upstream UEFI framebuffer path also requires rebuilding the kernel with the corresponding r8q bring-up config and using Mu-Silicium; this recipe does not generate or flash those components.
 
 #### Experimental U-Boot path
 

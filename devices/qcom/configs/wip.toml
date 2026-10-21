@@ -16,11 +16,13 @@ ramdisk = 0x0
 second = 0x0
 tags = 0x0
 pagesize = 0
-# OPTIONAL: uncomment if the device needs to use a v2 format bootimg, which
-# embeds a separate copy of the DTB (not relying on the one appended to the
-# kernel image)
+# OPTIONAL: uncomment if the device needs to use a v2 format bootimg with a
+# separately supplied DTB
 # version = 2
 # dtb = 0x0
+# board = ""
+# os_version = ""
+# os_patch_level = ""
 
 # Device-specific parameters: those are mostly used to identify the device, and
 # especially the device-tree file to use, which is constructed this way:
@@ -43,3 +45,6 @@ model = ""
 # append = ""
 # OPTIONAL: uncomment if device uses different bootimg parameters
 # bootimg = {version = 2, base = 0x0, kernel = 0x0, ramdisk = 0x0, dtb = 0x0, second = 0x0, tags = 0x0, pagesize = 4096 }
+# OPTIONAL: set false if the DTB should only be included as a separate
+# boot-image component, not appended to the kernel payload
+# append_dtb_to_kernel = false

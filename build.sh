@@ -9,7 +9,7 @@ if [ -z "${ARGS+x}" ]; then
 fi
 
 ## NOTE: If editing below, make sure to update `./*.yml` for GitLab-CI, as it doesn't call this file (`./build.sh`)
-device="pinephone"
+device="r8q"
 image="image"
 partitiontable="gpt"
 filesystem="ext4"
@@ -19,7 +19,7 @@ crypt_password=
 hostname=
 arch="arm64"
 do_compress=
-family=
+family="qcom"
 image_only=
 installer=
 zram=
@@ -28,14 +28,14 @@ mirror="http://http.kali.org/kali"
 password=
 use_docker=
 username=
-no_blockmap=
+no_blockmap=1
 ssh=
 debian_suite="kali-rolling"
 suite="forky"
 contrib="true"
 sign=
-miniramfs=
-verbose=
+miniramfs=1
+verbose=1
 
 while getopts "cdDvizobsZCrR:x:S:e:H:f:g:h:m:M:p:t:u:F:" opt
 do
@@ -92,7 +92,7 @@ case "${device}" in
     fi
     family="qcom"
     SECTSIZE="$(tomlq -r '.bootimg.pagesize' devices/qcom/configs/${device}.toml)"
-    ARGS="${ARGS} -e MKE2FS_DEVICE_SECTSIZE:${SECTSIZE} -t nonfree:true -t bootonroot:false"
+    ARGS="${ARGS} -e MKE2FS_DEVICE_SECTSIZE:${SECTSIZE} -t nonfree:true -t bootonroot:true"
     ;;
   "amd64"|"amd64-free" )
     arch="amd64"
@@ -162,6 +162,10 @@ ARGS="${ARGS} -t architecture:${arch} -t family:${family} -t device:${device} \
             -t image:${image_file} -t rootfs:${rootfs_file} -t installfs:${installfs_file} \
             -t debian_suite:${debian_suite} -t suite:${suite} \
             --scratchsize=8G"
+
+if [ "$installer" ]; then
+  ${DEBOS_CMD} ${ARGS} --dry-run "rootfs-device.yaml"
+fi
 
 if [ ! "${image_only}" ] || [ ! -f "${rootfs_file}" ]; then
   # Ensure subsequent artifacts are rebuilt too
