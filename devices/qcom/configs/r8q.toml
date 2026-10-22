@@ -18,8 +18,8 @@ os_patch_level = "2024-09"
 [[device]]
 vendor = "samsung"
 model = "r8q"
-dtb_model_fallbacks = ["r8s"]
+#dtb_model_fallbacks = ["r8s"]
 append_dtb_to_kernel = false
-append = "console=tty0 clk_ignore_unused irqchip.gicv3_pseudo_nmi=1 Joanna pd_ignore_unused arm-smmu.disable_bypass=0 rootwait panic=30 root=/dev/block/by-name/userdata"
+append = "root=UUID=4ca83f9b-4448-483e-8aa9-5e0c8c62f3d6 console=tty0 clk_ignore_unused irqchip.gicv3_pseudo_nmi=1 Joanna pd_ignore_unused arm-smmu.disable_bypass=0 rootwait panic=30"
 
-dtb = "qcom/sm8250-samsung-r8q.dtb"
+#dtb = "qcom/sm8250-samsung-r8q.dtb"
