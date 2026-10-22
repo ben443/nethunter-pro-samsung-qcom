@@ -1,0 +1,9 @@
+[juicer]
+dynpart = "super"
+firmware = [
+    { partition = "vendor", origin = "firmware", destination = "qcom/sm8250/Samsung/r8q", files = [
+        { name = "adsp.mdt" },
+        { name = "cdsp.mdt" },
+        { name = "slpi.mdt" },
+    ] },
+]
