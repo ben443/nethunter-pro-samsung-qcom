@@ -11,9 +11,9 @@ tags = 0x1e00000
 dtb = 0x1f00000
 pagesize = 0x1000
 name = ""
-board = "SRPUB26A012"
+board = "SRPTG02C004"
 os_version = "11.0.0"
-os_patch_level = "2024-09"
+os_patch_level = "2022-04"
 
 [[device]]
 vendor = "samsung"
